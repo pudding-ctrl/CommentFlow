@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="YouTube-Kommentare übersichtlich abrufen und exportieren.">
+    <title>CommentFlow – YouTube-Kommentare</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --surface: #ffffff;
+            --surface-soft: #f0f3f9;
+            --ink: #172033;
+            --muted: #6e7890;
+            --line: #e3e8f1;
+            --primary: #6757e8;
+            --primary-dark: #5142ce;
+            --danger: #df5269;
+            --shadow: 0 18px 55px rgba(40, 46, 81, .10);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: var(--ink);
+            background: radial-gradient(circle at 90% 0%, #e8e4ff 0, transparent 30%), var(--bg);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        button, input { font: inherit; }
+        button { cursor: pointer; }
+        .app { width: min(1180px, calc(100% - 40px)); margin: auto; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 28px 0; }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 800; letter-spacing: -.5px; }
+        .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; color: white; background: var(--primary); border-radius: 12px; box-shadow: 0 8px 18px #6757e844; }
+        .brand-mark svg { width: 20px; }
+        .badge { padding: 7px 12px; color: var(--primary-dark); background: #ebe9ff; border-radius: 99px; font-size: 12px; font-weight: 700; }
+        .hero { padding: 46px 0 34px; text-align: center; }
+        h1 { max-width: 710px; margin: 0 auto 14px; font-size: clamp(36px, 6vw, 64px); line-height: 1.04; letter-spacing: -3px; }
+        .gradient { color: var(--primary); }
+        .hero p { max-width: 620px; margin: auto; color: var(--muted); font-size: 17px; line-height: 1.6; }
+        .panel { padding: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); }
+        .form-grid { display: grid; grid-template-columns: 1fr 220px auto; gap: 12px; align-items: end; }
+        label { display: block; margin: 0 0 8px 2px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+        input { width: 100%; padding: 14px 16px; color: var(--ink); background: #fbfcfe; border: 1px solid var(--line); border-radius: 12px; outline: none; transition: .2s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px #6757e81c; }
+        .btn { min-height: 49px; padding: 0 20px; color: white; background: var(--primary); border: 0; border-radius: 12px; font-weight: 750; transition: .2s; }
+        .btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn:disabled { opacity: .55; cursor: wait; transform: none; }
+        .hint { margin: 13px 2px 0; color: var(--muted); font-size: 12px; }
+        .hint a { color: var(--primary); }
+        .error { display: none; margin-top: 14px; padding: 12px 14px; color: #a8334a; background: #fff0f3; border: 1px solid #ffd4dc; border-radius: 10px; font-size: 14px; }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 38px 0 18px; }
+        .toolbar h2 { margin: 0; font-size: 21px; letter-spacing: -.5px; }
+        .actions { display: flex; gap: 8px; }
+        .small-btn { padding: 9px 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-weight: 650; }
+        .small-btn:hover { color: var(--primary); border-color: #bcb5ff; }
+        .comment-list { display: grid; gap: 12px; }
+        .comment { display: grid; grid-template-columns: 42px 1fr; gap: 13px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+        .avatar { display: grid; place-items: center; width: 42px; height: 42px; color: var(--primary-dark); background: #ebe9ff; border-radius: 50%; font-weight: 800; }
+        .comment-head { display: flex; justify-content: space-between; gap: 10px; }
+        .author { font-size: 14px; font-weight: 750; }
+        .date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+        .comment-text { margin: 8px 0 0; color: #3d465c; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .likes { display: inline-block; margin-top: 10px; color: var(--muted); font-size: 12px; }
+        .empty { padding: 70px 20px; color: var(--muted); text-align: center; background: var(--surface); border: 1px dashed #cbd2e0; border-radius: 18px; }
+        .empty-icon { margin-bottom: 12px; color: var(--primary); font-size: 34px; }
+        .empty strong { display: block; margin-bottom: 7px; color: var(--ink); font-size: 16px; }
+        .status { color: var(--muted); font-size: 13px; }
+        footer { padding: 42px 0 30px; color: var(--muted); text-align: center; font-size: 12px; }
+        @media (max-width: 760px) {
+            .app { width: min(100% - 26px, 600px); }
+            header { padding: 18px 0; }
+            .hero { padding: 35px 0 25px; }
+            h1 { letter-spacing: -2px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .panel { padding: 18px; }
+            .toolbar { align-items: flex-start; flex-direction: column; }
+            .actions { width: 100%; }
+            .small-btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="brand"><span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 5h14M5 12h9M5 19h14"/></svg>
+            </span>CommentFlow</div>
+            <span class="badge">YouTube Toolkit</span>
+        </header>
+
+        <main>
+            <section class="hero">
+                <h1>Alle Kommentare.<br><span class="gradient">Klar formatiert.</span></h1>
+                <p>YouTube-Link einfügen, Kommentare laden und übersichtlich lesen, durchsuchen oder exportieren.</p>
+            </section>
+
+            <section class="panel" aria-label="Video laden">
+                <div class="form-grid">
+                    <div>
+                        <label for="videoUrl">YouTube-Video-Link</label>
+                        <input id="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="url">
+                    </div>
+                    <div>
+                        <label for="apiKey">YouTube API-Key</label>
+                        <input id="apiKey" type="password" placeholder="AIza..." autocomplete="off">
+                    </div>
+                    <button class="btn" id="loadButton" type="button">Kommentare laden</button>
+                </div>
+                <p class="hint">Der API-Key bleibt in deinem Browser. Einen Key bekommst du in der <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> (YouTube Data API v3 aktivieren).</p>
+                <div class="error" id="error" role="alert"></div>
+            </section>
+
+            <div class="toolbar">
+                <div><h2>Kommentare <span class="status" id="count"></span></h2></div>
+                <div class="actions">
+                    <input id="search" type="search" placeholder="Kommentare durchsuchen ..." aria-label="Kommentare durchsuchen">
+                    <button class="small-btn" id="copyButton" type="button" disabled>Alles kopieren</button>
+                    <button class="small-btn" id="exportButton" type="button" disabled>Als CSV exportieren</button>
+                </div>
+            </div>
+            <div id="comments" class="comment-list">
+                <div class="empty"><div class="empty-icon">✦</div><strong>Noch keine Kommentare geladen</strong>Füge oben einen YouTube-Link und deinen API-Key ein.</div>
+            </div>
+        </main>
+        <footer>CommentFlow · Die Daten werden direkt von der YouTube Data API geladen.</footer>
+    </div>
+
+    <script>
+        const $ = (selector) => document.querySelector(selector);
+        const urlInput = $("#videoUrl");
+        const apiInput = $("#apiKey");
+        const loadButton = $("#loadButton");
+        const commentsNode = $("#comments");
+        const errorNode = $("#error");
+        const countNode = $("#count");
+        const searchInput = $("#search");
+        const copyButton = $("#copyButton");
+        const exportButton = $("#exportButton");
+        let comments = [];
+
+        apiInput.value = localStorage.getItem("commentflow-api-key") || "";
+        apiInput.addEventListener("change", () => localStorage.setItem("commentflow-api-key", apiInput.value.trim()));
+        urlInput.addEventListener("keydown", (event) => { if (event.key === "Enter") loadComments(); });
+        loadButton.addEventListener("click", loadComments);
+        searchInput.addEventListener("input", renderComments);
+        copyButton.addEventListener("click", copyComments);
+        exportButton.addEventListener("click", exportCsv);
+
+        function getVideoId(value) {
+            try {
+                const url = new URL(value.trim());
+                if (url.hostname === "youtu.be") return url.pathname.slice(1).split("/")[0];
+                if (url.hostname.endsWith("youtube.com")) {
+                    if (url.searchParams.get("v")) return url.searchParams.get("v");
+                    const parts = url.pathname.split("/").filter(Boolean);
+                    if (parts[0] === "shorts" || parts[0] === "embed") return parts[1];
+                }
+            } catch (_) { /* validation message below */ }
+            return null;
+        }
+
+        async function fetchAll(endpoint, params) {
+            const result = [];
+            let pageToken = "";
+            do {
+                const query = new URLSearchParams({ ...params, key: apiInput.value.trim(), maxResults: "100", ...(pageToken ? { pageToken } : {}) });
+                const response = await fetch(`${endpoint}?${query}`);
+                const data = await response.json();
+                if (!response.ok) {
+                    const apiError = data.error || {};
+                    const reason = apiError.errors?.[0]?.reason || "";
+                    if (response.status === 403 && (reason === "forbidden" || /blocked|referer|referrer/i.test(apiError.message || ""))) {
+                        throw new Error("Google blockiert diesen API-Key. Aktiviere im Google-Cloud-Projekt die YouTube Data API v3 und stelle unter \"Anwendungsbeschränkungen\" entweder \"Keine\" ein oder erlaube den Referrer deiner Website. Öffne die Seite für Referrer-Beschränkungen über http://localhost statt direkt als file://.");
+                    }
+                    throw new Error(apiError.message || "Die YouTube API konnte nicht erreicht werden.");
+                }
+                result.push(...(data.items || []));
+                pageToken = data.nextPageToken || "";
+            } while (pageToken);
+            return result;
+        }
+
+        async function loadComments() {
+            const videoId = getVideoId(urlInput.value);
+            const apiKey = apiInput.value.trim();
+            errorNode.style.display = "none";
+            if (!videoId) return showError("Bitte füge einen gültigen YouTube-Link ein.");
+            if (!apiKey) return showError("Bitte trage deinen YouTube API-Key ein.");
+            loadButton.disabled = true;
+            loadButton.textContent = "Wird geladen ...";
+            commentsNode.innerHTML = '<div class="empty"><div class="empty-icon">◌</div><strong>Kommentare werden geladen</strong>Das kann bei vielen Kommentaren einen Moment dauern.</div>';
+            try {
+                const threads = await fetchAll("https://www.googleapis.com/youtube/v3/commentThreads", { part: "snippet,replies", videoId });
+                const loaded = [];
+                for (const thread of threads) {
+                    const top = thread.snippet.topLevelComment.snippet;
+                    loaded.push(toComment(top, false));
+                    const replies = thread.replies?.comments || [];
+                    loaded.push(...replies.map((reply) => toComment(reply.snippet, true)));
+                    if ((thread.snippet.totalReplyCount || 0) > replies.length) {
+                        const allReplies = await fetchAll("https://www.googleapis.com/youtube/v3/comments", { part: "snippet", parentId: thread.snippet.topLevelComment.id });
+                        loaded.splice(loaded.length - replies.length, replies.length, ...allReplies.map((reply) => toComment(reply.snippet, true)));
+                    }
+                }
+                comments = loaded;
+                renderComments();
+                if (!comments.length) showError("Für dieses Video wurden keine Kommentare gefunden oder Kommentare sind deaktiviert.");
+            } catch (error) {
+                comments = [];
+                commentsNode.innerHTML = '<div class="empty"><div class="empty-icon">!</div><strong>Kommentare konnten nicht geladen werden</strong>Prüfe Link, API-Key und ob die YouTube Data API aktiviert ist.</div>';
+                showError(error.message);
+            } finally {
+                loadButton.disabled = false;
+                loadButton.textContent = "Kommentare laden";
+            }
+        }
+
+        function toComment(snippet, reply) {
+            return { author: snippet.authorDisplayName, text: snippet.textDisplay.replace(/<[^>]*>/g, ""), date: new Date(snippet.publishedAt), likes: snippet.likeCount || 0, reply };
+        }
+        function renderComments() {
+            const query = searchInput.value.trim().toLowerCase();
+            const filtered = comments.filter((comment) => `${comment.author} ${comment.text}`.toLowerCase().includes(query));
+            countNode.textContent = comments.length ? `(${filtered.length}${query ? ` von ${comments.length}` : ""})` : "";
+            copyButton.disabled = exportButton.disabled = !comments.length;
+            if (!filtered.length) {
+                commentsNode.innerHTML = '<div class="empty"><div class="empty-icon">⌕</div><strong>Keine Treffer</strong>Versuche einen anderen Suchbegriff.</div>';
+                return;
+            }
+            commentsNode.innerHTML = filtered.map((comment) => `<article class="comment" ${comment.reply ? 'style="margin-left:42px;border-left:3px solid #d7d2ff"' : ""}>
+                <div class="avatar">${escapeHtml(comment.author.charAt(0).toUpperCase())}</div>
+                <div><div class="comment-head"><span class="author">${escapeHtml(comment.author)}</span><span class="date">${comment.date.toLocaleDateString("de-DE")}</span></div>
+                <div class="comment-text">${escapeHtml(comment.text)}</div><span class="likes">♡ ${comment.likes} Likes${comment.reply ? " · Antwort" : ""}</span></div>
+            </article>`).join("");
+        }
+        function escapeHtml(value) { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
+        function showError(message) { errorNode.textContent = message; errorNode.style.display = "block"; }
+        async function copyComments() {
+            await navigator.clipboard.writeText(comments.map((comment) => `[${comment.date.toLocaleString("de-DE")}] ${comment.author}: ${comment.text}`).join("\n\n"));
+            copyButton.textContent = "Kopiert!";
+            setTimeout(() => copyButton.textContent = "Alles kopieren", 1600);
+        }
+        function exportCsv() {
+            const rows = [["Autor", "Datum", "Likes", "Antwort", "Kommentar"], ...comments.map((c) => [c.author, c.date.toLocaleString("de-DE"), c.likes, c.reply ? "Ja" : "Nein", c.text])];
+            const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\n");
+            const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "youtube-kommentare.csv";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+    </script>
+</body>
+</html>
